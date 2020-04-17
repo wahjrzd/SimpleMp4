@@ -15,16 +15,34 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="pch.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="pch.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="SimpleMp4.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="AtomMDHD.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="AtomMVHD.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="AtomTKHD.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MP4Demuxer.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AtomMDHD.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="AtomMVHD.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="AtomTKHD.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MP4Demuxer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

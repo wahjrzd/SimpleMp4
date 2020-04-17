@@ -1,21 +1,39 @@
-﻿// SimpleMp4.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
+﻿// main.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
 //
 
-#include "pch.h"
 #include <iostream>
+#include "MP4Demuxer.h"
+
+#ifdef _WIN32
+#pragma comment(lib, "ws2_32.lib")
+#endif // _WIN32
 
 int main()
 {
-    std::cout << "Hello World!\n"; 
+#if defined(_WIN32)&& defined(_DEBUG)
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#endif
+
+	MP4Demuxer mp4;
+	mp4.OpenFile("1.mp4");
+	FILE* out_pf = nullptr;
+#ifdef _WIN32
+	fopen_s(&out_pf, "out.h264", "wb");
+#else
+	out_pf = fopen("out.h264", "wb");
+#endif // _WIN32
+
+	uint8_t* data;
+	uint32_t sz;
+	uint32_t pts;
+	bool keyFrame;
+	while (mp4.GetNextFrame(&data, &sz, &pts, &keyFrame) == 0)
+	{
+		fwrite(data, 1, sz, out_pf);
+		std::cout << "datasize:" << sz << ",pts" << pts << std::endl;
+	}
+	fclose(out_pf);
+	std::string line;
+	std::getline(std::cin, line);
+	return 0;
 }
-
-// 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单
-// 调试程序: F5 或调试 >“开始调试”菜单
-
-// 入门提示: 
-//   1. 使用解决方案资源管理器窗口添加/管理文件
-//   2. 使用团队资源管理器窗口连接到源代码管理
-//   3. 使用输出窗口查看生成输出和其他消息
-//   4. 使用错误列表窗口查看错误
-//   5. 转到“项目”>“添加新项”以创建新的代码文件，或转到“项目”>“添加现有项”以将现有代码文件添加到项目
-//   6. 将来，若要再次打开此项目，请转到“文件”>“打开”>“项目”并选择 .sln 文件
