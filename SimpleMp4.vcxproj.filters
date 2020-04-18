@@ -15,9 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="SimpleMp4.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="AtomMDHD.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -28,6 +25,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="MP4Demuxer.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

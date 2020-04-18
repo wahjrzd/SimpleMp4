@@ -15,7 +15,7 @@ int main()
 #endif
 
 	MP4Demuxer mp4;
-	mp4.OpenFile("1.mp4");
+	mp4.OpenFile("2.mp4");
 	FILE* out_pf = nullptr;
 #ifdef _WIN32
 	fopen_s(&out_pf, "out.h264", "wb");
@@ -30,10 +30,10 @@ int main()
 	while (mp4.GetNextFrame(&data, &sz, &pts, &keyFrame) == 0)
 	{
 		fwrite(data, 1, sz, out_pf);
-		std::cout << "datasize:" << sz << ",pts" << pts << std::endl;
+		//std::cout << "datasize:" << sz << ",pts" << pts << std::endl;
 	}
 	fclose(out_pf);
-	std::string line;
-	std::getline(std::cin, line);
+	//std::string line;
+	//std::getline(std::cin, line);
 	return 0;
 }

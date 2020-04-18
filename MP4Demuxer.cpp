@@ -200,14 +200,14 @@ int MP4Demuxer::Parse()
 			std::cout << "find avcC" << std::endl;
 			unsigned char* data = new unsigned char[boxDataSize];
 			fread(data, 1, boxDataSize, m_fileHandle);
-			////sps
-			//auto spsLen = ntohs(*((u_short*)(data + 6)));
-			//sps = new unsigned char[spsLen];
-			//memcpy(sps, data + 8, spsLen);
-			////pps
-			//auto ppsLen = ntohs(*((u_short*)(data + 8 + spsLen + 1)));
-			//pps = new unsigned char[ppsLen];
-			//memcpy(pps, data + 8 + spsLen + 3, spsLen);
+			//sps
+			auto spsLen = ntohs(*((u_short*)(data + 6)));
+			sps = new unsigned char[spsLen];
+			memcpy(sps, data + 8, spsLen);
+			//pps
+			auto ppsLen = ntohs(*((u_short*)(data + 8 + spsLen + 1)));
+			pps = new unsigned char[ppsLen];
+			memcpy(pps, data + 8 + spsLen + 3, ppsLen);
 			delete[] data;
 		}
 		else if (memcmp(boxHeader + 4, BoxSTTS, 4) == 0)//Timestamp table
@@ -417,9 +417,18 @@ int MP4Demuxer::GetNextFrame(uint8_t** data, uint32_t* sz, uint32_t* ts, bool* i
 
 int MP4Demuxer::Seek(uint32_t ts)
 {
-	auto duration = tkhd[0]->mdhd->Duration / (tkhd[0]->mdhd->TimeScale / 1000);
+	auto videoTrack = tkhd[0]->isVideo ? tkhd[0] : tkhd[1];
+	auto duration = videoTrack->mdhd->Duration / (videoTrack->mdhd->TimeScale / 1000);
 	if (ts > duration)
 		return 1;
 
+	for (size_t i = 0; i < videoTrack->TotalSampleCount; i++)
+	{
+		if (videoTrack->samples[i].isKeyFrame && videoTrack->samples[i].TimeStamp >= (ts + 1000))
+		{
+			videoTrack->curSampleIndex = i;
+			break;
+		}
+	}
 	return 0;
 }
