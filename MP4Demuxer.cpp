@@ -200,6 +200,28 @@ int MP4Demuxer::Parse()
 				auto sampleRate = (uint32_t)ntohl(*((u_long*)(dd + 22)));//4字节采样率[16.16]格式
 				//esds box
 				//4字节fullbox
+				//1字节 ES descriptor type tag 0x03
+				//3字节 extended descriptor type tag string 0x80
+				//1字节 length 22
+				//2字节 ES ID  00 02
+				//1字节byte stream priority 00
+				//1字节 byte decoder config descriptor type tag 04
+				//3 bytes extended descriptor type tag string 80 80 80
+				//1 byte descriptor type length 14
+				//1 byte object type ID 0x40 
+				//1字节 6bits 1bit 1bit
+				//3字节 buffersize
+				//4 bytes maximum bit rate = 32 - bit unsigned value 00 00 79 45
+				//4 bytes average bit rate = 32 - bit unsigned value 00 00 79 45
+				//1 byte decoder specific descriptor type tag 05
+				//3 bytes extended descriptor type tag  0x80 80 80
+				//1 byte descriptor type length 02
+				//ES header start codes 0x14 0x08 00010 1000 00010 0 0 AudioSpecificConfig
+				//                                  2(audioObjectType )      8(sampleIndex)   2(channel)   0 0
+				// 1 byte SL config descriptor type tag = 8-bit hex value 0x06
+				// 3 bytes extended descriptor type tag string = 3 * 8 - bit hex value
+				// 1 byte descriptor type length 01
+				//1 byte SL value = 8 - bit hex value set to 0x02
 				delete[] dd;
 				fseek(m_fileHandle, boxDataSize, SEEK_CUR);
 			}
