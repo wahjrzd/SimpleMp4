@@ -15,7 +15,7 @@ int main()
 #endif
 
 	MP4Demuxer mp4;
-	mp4.OpenFile("2.mp4");
+	mp4.OpenFile("1.mp4");
 	FILE* out_pf = nullptr;
 #ifdef _WIN32
 	fopen_s(&out_pf, "out.h264", "wb");

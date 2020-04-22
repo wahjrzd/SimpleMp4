@@ -186,7 +186,23 @@ int MP4Demuxer::Parse()
 			else if (memcmp(boxHeader + 4, "hev1", 4) == 0)
 				fseek(m_fileHandle, boxDataSize, SEEK_CUR);
 			else if (memcmp(boxHeader + 4, "mp4a", 4) == 0)//aac
+			{
+				auto dd = new unsigned char[boxDataSize];
+				fread(dd, 1, boxDataSize, m_fileHandle);
+				//reserved 6字节
+				auto data_referce_index = ntohs(*((u_short*)(dd + 6)));//一般是1  2字节 --SampleEntry 
+				//AudioSampleEntry
+				// reserved 8字节
+				auto channelCount = ntohs(*((u_short*)(dd + 16)));//2字节通道数
+				auto sampleSize = ntohs(*((u_short*)(dd + 18)));//2字节采样位数
+				//2字节 pre_defined
+				//2字节 reservered
+				auto sampleRate = (uint32_t)ntohl(*((u_long*)(dd + 22)));//4字节采样率[16.16]格式
+				//esds box
+				//4字节fullbox
+				delete[] dd;
 				fseek(m_fileHandle, boxDataSize, SEEK_CUR);
+			}
 			else if (memcmp(boxHeader + 4, "alaw", 4) == 0)//g711
 				fseek(m_fileHandle, boxDataSize, SEEK_CUR);
 			else
