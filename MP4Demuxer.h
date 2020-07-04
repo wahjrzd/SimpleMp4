@@ -72,6 +72,7 @@ public:
 
     int GetNextFrame(uint8_t** data, uint32_t* sz, uint32_t* ts, bool* isKeyFrame);
 
+	int GetNextAudioFrame(uint8_t** data, uint32_t* sz, uint32_t* ts);
     /*
      * @param ts Æ«ÒÆÎ»ÖÃ µ¥Î»ºÁÃë
     */

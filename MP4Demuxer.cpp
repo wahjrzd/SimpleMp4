@@ -223,7 +223,7 @@ int MP4Demuxer::Parse()
 				// 1 byte descriptor type length 01
 				//1 byte SL value = 8 - bit hex value set to 0x02
 				delete[] dd;
-				fseek(m_fileHandle, boxDataSize, SEEK_CUR);
+				//fseek(m_fileHandle, boxDataSize, SEEK_CUR);
 			}
 			else if (memcmp(boxHeader + 4, "alaw", 4) == 0)//g711
 				fseek(m_fileHandle, boxDataSize, SEEK_CUR);
@@ -450,6 +450,34 @@ int MP4Demuxer::GetNextFrame(uint8_t** data, uint32_t* sz, uint32_t* ts, bool* i
 	*data = mediaData;
 	*sz = i;
 	videoTrack->curSampleIndex++;
+	return 0;
+}
+
+int MP4Demuxer::GetNextAudioFrame(uint8_t** data, uint32_t* sz, uint32_t* ts)
+{
+	auto audioTrack = tkhd[0]->isVideo ? tkhd[1] : tkhd[0];
+	if (audioTrack->curSampleIndex >= audioTrack->TotalSampleCount)
+		return -1;
+	fseek(m_fileHandle, audioTrack->samples[audioTrack->curSampleIndex].Position, SEEK_SET);
+	if (!mediaData)
+	{
+		mediaData = new uint8_t[audioTrack->samples[audioTrack->curSampleIndex].SampleSize];
+		mediaSize = audioTrack->samples[audioTrack->curSampleIndex].SampleSize;
+	}
+	else if (mediaSize < audioTrack->samples[audioTrack->curSampleIndex].SampleSize)
+	{
+		std::cout << "buf too small" << std::endl;
+		delete[] mediaData;
+		mediaData = new uint8_t[audioTrack->samples[audioTrack->curSampleIndex].SampleSize];
+		mediaSize = audioTrack->samples[audioTrack->curSampleIndex].SampleSize;
+	}
+	
+	fread(mediaData, 1, audioTrack->samples[audioTrack->curSampleIndex].SampleSize, m_fileHandle);
+		
+	*ts = audioTrack->samples[audioTrack->curSampleIndex].TimeStamp;
+	*data = mediaData;
+	*sz = audioTrack->samples[audioTrack->curSampleIndex].SampleSize;
+	audioTrack->curSampleIndex++;
 	return 0;
 }
 
