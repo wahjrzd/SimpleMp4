@@ -70,13 +70,17 @@ public:
 
 	int OpenFile(const std::string& fileName);
 
+    int GetOneFrame(uint8_t** data, uint32_t* sz, uint32_t* ts, bool* isKeyFrame, bool* isVideo);
+
     int GetNextFrame(uint8_t** data, uint32_t* sz, uint32_t* ts, bool* isKeyFrame);
 
 	int GetNextAudioFrame(uint8_t** data, uint32_t* sz, uint32_t* ts);
     /*
-     * @param ts ∆´“∆Œª÷√ µ•Œª∫¡√Î
+     * @param ts unit millisecond
     */
     int Seek(uint32_t ts);
+
+    void WriteTag(FILE* fPtr);
 private:
 	int Parse();
 
@@ -86,8 +90,12 @@ private:
 	AtomTKHD* tkhd[2] = { nullptr };
 	int trackID = 0;
 
+    unsigned char* vps = nullptr;
+    uint16_t vpsLen = 0;
     unsigned char* sps = nullptr;
+    uint16_t spsLen = 0;
     unsigned char* pps = nullptr;
+    uint16_t ppsLen = 0;
 
     uint8_t* mediaData = nullptr;
     uint32_t mediaSize = 0;

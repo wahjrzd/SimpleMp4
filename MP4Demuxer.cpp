@@ -55,6 +55,7 @@ MP4Demuxer::~MP4Demuxer()
 	delete mvhd;
 	delete tkhd[0];
 	delete tkhd[1];
+	delete[] vps;
 	delete[] sps;
 	delete[] pps;
 	delete[] mediaData;
@@ -69,7 +70,7 @@ int MP4Demuxer::OpenFile(const std::string& fileName)
 #endif
 	if (!m_fileHandle)
 		return 1;
-	//检测文件头
+	//???????
 	unsigned char boxHeader[8];
 	fread(boxHeader, 1, 8, m_fileHandle);
 	if (memcmp(boxHeader + 4, BoxFTYP, 4) != 0)
@@ -104,7 +105,7 @@ int MP4Demuxer::Parse()
 			//TODO
 		}
 
-		if (memcmp(boxHeader + 4, BoxFREE, 4) == 0)//不用处理
+		if (memcmp(boxHeader + 4, BoxFREE, 4) == 0)//ignore
 		{
 			std::cout << "find free" << std::endl;
 			fseek(m_fileHandle, boxDataSize, SEEK_CUR);
@@ -150,12 +151,12 @@ int MP4Demuxer::Parse()
 			tkhd[trackID - 1]->mdhd = new AtomMDHD(fullBox[0], m_fileHandle);
 			std::cout << "find mdhd" << std::endl;
 		}
-		else if (memcmp(boxHeader + 4, BoxVMHD, 4) == 0)//vmhd 标记这是视频
+		else if (memcmp(boxHeader + 4, BoxVMHD, 4) == 0)//vmhd this video
 		{
 			std::cout << "find vmhd" << std::endl;
 			fseek(m_fileHandle, boxDataSize, SEEK_CUR);
 		}
-		else if (memcmp(boxHeader + 4, BoxSMHD, 4) == 0)//smhd 标记这是音频
+		else if (memcmp(boxHeader + 4, BoxSMHD, 4) == 0)//smhd this audio
 		{
 			std::cout << "find smhd" << std::endl;
 			fseek(m_fileHandle, boxDataSize, SEEK_CUR);
@@ -172,9 +173,9 @@ int MP4Demuxer::Parse()
 		}
 		else if (memcmp(boxHeader + 4, BoxSTSD, 4) == 0)//Sample Description
 		{
-			//stsd 解析sps和pps  
+			//stsd ????sps??pps  
 			std::cout << "find stsd" << std::endl;
-			fseek(m_fileHandle, 8, SEEK_CUR);//跳个8字节 4(fullbox)+4(descount)
+			fseek(m_fileHandle, 8, SEEK_CUR);//skip 8 bytes 4(fullbox)+4(descount)
 			fread(boxHeader, 1, 8, m_fileHandle);
 			boxDataSize = ((boxHeader[0] << 24) | (boxHeader[1] << 16) | (boxHeader[2] << 8) | boxHeader[3]) - 8;
 			
@@ -184,33 +185,37 @@ int MP4Demuxer::Parse()
 				Parse();
 			}
 			else if (memcmp(boxHeader + 4, "hev1", 4) == 0)
-				fseek(m_fileHandle, boxDataSize, SEEK_CUR);
+			{
+				//fseek(m_fileHandle, boxDataSize, SEEK_CUR);
+				fseek(m_fileHandle, 78, SEEK_CUR);
+				Parse();
+			}
 			else if (memcmp(boxHeader + 4, "mp4a", 4) == 0)//aac
 			{
 				auto dd = new unsigned char[boxDataSize];
 				fread(dd, 1, boxDataSize, m_fileHandle);
-				//reserved 6字节
+				//reserved 6???
 				auto data_referce_index = ntohs(*((u_short*)(dd + 6)));//一般是1  2字节 --SampleEntry 
 				//AudioSampleEntry
-				// reserved 8字节
+				// reserved 8???
 				auto channelCount = ntohs(*((u_short*)(dd + 16)));//2字节通道数
 				auto sampleSize = ntohs(*((u_short*)(dd + 18)));//2字节采样位数
-				//2字节 pre_defined
-				//2字节 reservered
+				//2??? pre_defined
+				//2??? reservered
 				auto sampleRate = (uint32_t)ntohl(*((u_long*)(dd + 22)));//4字节采样率[16.16]格式
 				//esds box
-				//4字节fullbox
-				//1字节 ES descriptor type tag 0x03
-				//3字节 extended descriptor type tag string 0x80
-				//1字节 length 22
-				//2字节 ES ID  00 02
-				//1字节byte stream priority 00
-				//1字节 byte decoder config descriptor type tag 04
+				//4 bytes fullbox
+				//1 bytes ES descriptor type tag 0x03
+				//3 bytes extended descriptor type tag string 0x80
+				//1 bytes length 22
+				//2 bytes ES ID  00 02
+				//1 byte stream priority 00
+				//1 byte decoder config descriptor type tag 04
 				//3 bytes extended descriptor type tag string 80 80 80
 				//1 byte descriptor type length 14
 				//1 byte object type ID 0x40 
-				//1字节 6bits 1bit 1bit
-				//3字节 buffersize
+				//1 byte 6bits 1bit 1bit
+				//3 byte buffersize
 				//4 bytes maximum bit rate = 32 - bit unsigned value 00 00 79 45
 				//4 bytes average bit rate = 32 - bit unsigned value 00 00 79 45
 				//1 byte decoder specific descriptor type tag 05
@@ -227,6 +232,11 @@ int MP4Demuxer::Parse()
 			}
 			else if (memcmp(boxHeader + 4, "alaw", 4) == 0)//g711
 				fseek(m_fileHandle, boxDataSize, SEEK_CUR);
+			else if (memcmp(boxHeader + 4, "hvc1", 4) == 0)
+			{
+				fseek(m_fileHandle, 78, SEEK_CUR);
+				Parse();
+			}
 			else
 			{
 				std::cout << std::string((char*)boxHeader + 4, 4) << std::endl;
@@ -235,23 +245,43 @@ int MP4Demuxer::Parse()
 		}
 		else if (memcmp(boxHeader + 4, "avcC", 4) == 0)//sps pps???
 		{
-			std::cout << "find avcC" << std::endl;
+			std::cout << "find avcC" << std::endl;//AVCDecoderConfigurationRecord
 			unsigned char* data = new unsigned char[boxDataSize];
 			fread(data, 1, boxDataSize, m_fileHandle);
 			//sps
-			auto spsLen = ntohs(*((u_short*)(data + 6)));
+			spsLen = ntohs(*((u_short*)(data + 6)));
 			sps = new unsigned char[spsLen];
 			memcpy(sps, data + 8, spsLen);
 			//pps
-			auto ppsLen = ntohs(*((u_short*)(data + 8 + spsLen + 1)));
+			ppsLen = ntohs(*((u_short*)(data + 8 + spsLen + 1)));
 			pps = new unsigned char[ppsLen];
 			memcpy(pps, data + 8 + spsLen + 3, ppsLen);
+			delete[] data;
+		}
+		else if (memcmp(boxHeader + 4, "hvcC", 4) == 0)
+		{
+			std::cout << "find hvcC" << std::endl;//HEVCDecoderConfigurationRecord
+			unsigned char* data = new unsigned char[boxDataSize];
+			fread(data, 1, boxDataSize, m_fileHandle);
+			uint8_t arraySize = data[21];
+			//vps
+			vpsLen = ntohs(*((u_short*)(data + 23 + 1 + 2)));
+			vps = new unsigned char[vpsLen];
+			memcpy(vps, data + 23 + 1 + 4, vpsLen);
+			//sps
+			spsLen = ntohs(*((u_short*)(data + 23 + 1 + 4 + vpsLen + 1 + 2)));
+			sps = new unsigned char[spsLen];
+			memcpy(sps, data + 23 + 1 + 4 + vpsLen + 1 + 4, spsLen);
+			//pps
+			ppsLen = ntohs(*((u_short*)(data + 23 + 1 + 4 + vpsLen + 1 + 4 + spsLen + 1 + 2)));
+			pps = new unsigned char[ppsLen];
+			memcpy(pps, data + 23 + 1 + 4 + vpsLen + 1 + 4 + spsLen + 1 + 4, ppsLen);
 			delete[] data;
 		}
 		else if (memcmp(boxHeader + 4, BoxSTTS, 4) == 0)//Timestamp table
 		{
 			std::cout << "find stts" << std::endl;
-			fseek(m_fileHandle, 4, SEEK_CUR);//跳过4字节的fullbox
+			fseek(m_fileHandle, 4, SEEK_CUR);//skip 4 bytes fullbox
 			uint32_t entries = 0;
 			fread(&entries, 1, 4, m_fileHandle);
 			entries = ntohl(entries);
@@ -269,7 +299,9 @@ int MP4Demuxer::Parse()
 				fread(&stts[i].SampleDelta, 1, 4, m_fileHandle);
 				stts[i].SampleDelta = ntohl(stts[i].SampleDelta);
 			}
-			tkhd[trackID - 1]->samples = new SampleInfo[tkhd[trackID - 1]->TotalSampleCount];
+			/**/
+			auto capacity = tkhd[trackID - 1]->TotalSampleCount + 2;
+			tkhd[trackID - 1]->samples = new SampleInfo[capacity];
 			int ps = tkhd[trackID - 1]->mdhd->TimeScale / 1000;
 			int k = 0;
 			for (size_t i = 0; i < entries; i++)
@@ -289,7 +321,7 @@ int MP4Demuxer::Parse()
 		else if (memcmp(boxHeader + 4, BoxSTSZ, 4) == 0)//Sample size table
 		{
 			std::cout << "find stsz" << std::endl;
-			fseek(m_fileHandle, 4, SEEK_CUR);//跳过4字节的fullbox
+			fseek(m_fileHandle, 4, SEEK_CUR);//skip 4 bytes fullbox
 			uint32_t sampleSize;
 			uint32_t sampleCount;
 			fread(&sampleSize, 1, 4, m_fileHandle);
@@ -298,6 +330,10 @@ int MP4Demuxer::Parse()
 			sampleCount = ntohl(sampleCount);
 			if (sampleSize == 0)
 			{
+				/*set real*/
+				if (sampleCount > tkhd[trackID - 1]->TotalSampleCount)
+					tkhd[trackID - 1]->TotalSampleCount = sampleCount;
+
 				for (size_t i = 0; i < sampleCount; i++)
 				{
 					fread(&tkhd[trackID - 1]->samples[i].SampleSize, 1, 4, m_fileHandle);
@@ -313,7 +349,7 @@ int MP4Demuxer::Parse()
 		else if (memcmp(boxHeader + 4, BoxSTSS, 4) == 0)//确定media中的关键帧
 		{
 			std::cout << "find stss" << std::endl;
-			fseek(m_fileHandle, 4, SEEK_CUR);//跳过4字节的fullbox
+			fseek(m_fileHandle, 4, SEEK_CUR);//skip 4 bytes fullbox
 			uint32_t entries;
 			uint32_t index;
 			fread(&entries, 1, 4, m_fileHandle);
@@ -329,17 +365,16 @@ int MP4Demuxer::Parse()
 		else if (memcmp(boxHeader + 4, BoxSTSC, 4) == 0)//描述了sample与chunk的映射关系，查看这张表就可以找到包含指定sample的thunk，从而找到这个sample
 		{
 			std::cout << "find stsc" << std::endl;
-			fseek(m_fileHandle, 4, SEEK_CUR);//跳过4字节的fullbox
+			fseek(m_fileHandle, 4, SEEK_CUR);//skip 4 bytes fullbox
 			uint32_t entries;
 			fread(&entries, 1, 4, m_fileHandle);
 			entries = ntohl(entries);
 		
 			tkhd[trackID - 1]->stsc = new STSCInfo[tkhd[trackID - 1]->TotalSampleCount];
-			
 			uint32_t count = 0;
 			uint32_t last_samples_in_chunk = 0;
-			for (size_t i = 0; i < entries; i++)
-			{
+			if (entries == 1) {
+				entries = tkhd[trackID - 1]->TotalSampleCount;
 				uint32_t firstChunk;
 				fread(&firstChunk, 1, 4, m_fileHandle);
 				firstChunk = ntohl(firstChunk);
@@ -350,24 +385,48 @@ int MP4Demuxer::Parse()
 				fread(&sample_description_index, 1, 4, m_fileHandle);
 				sample_description_index = ntohl(sample_description_index);
 
-				while (count + 1 < firstChunk)
+				for (size_t i = 0; i < entries; i++)
 				{
-					tkhd[trackID - 1]->stsc[count].chunkIndex = count + 1;
-					tkhd[trackID - 1]->stsc[count].sampleCount = last_samples_in_chunk;
+					tkhd[trackID - 1]->stsc[count].chunkIndex = firstChunk++;
+					tkhd[trackID - 1]->stsc[count].sampleCount = samples_per_chunk;
 					count++;
+					last_samples_in_chunk = samples_per_chunk;
 				}
-				
-				tkhd[trackID - 1]->stsc[count].chunkIndex = firstChunk;
-				tkhd[trackID - 1]->stsc[count].sampleCount = samples_per_chunk;
-				count++;
-				last_samples_in_chunk = samples_per_chunk;
 			}
+			else
+			{
+				for (size_t i = 0; i < entries; i++)
+				{
+					uint32_t firstChunk;
+					fread(&firstChunk, 1, 4, m_fileHandle);
+					firstChunk = ntohl(firstChunk);
+					uint32_t samples_per_chunk;
+					fread(&samples_per_chunk, 1, 4, m_fileHandle);
+					samples_per_chunk = ntohl(samples_per_chunk);
+					uint32_t sample_description_index;
+					fread(&sample_description_index, 1, 4, m_fileHandle);
+					sample_description_index = ntohl(sample_description_index);
+
+					while (count + 1 < firstChunk)
+					{
+						tkhd[trackID - 1]->stsc[count].chunkIndex = count + 1;
+						tkhd[trackID - 1]->stsc[count].sampleCount = last_samples_in_chunk;
+						count++;
+					}
+
+					tkhd[trackID - 1]->stsc[count].chunkIndex = firstChunk++;
+					tkhd[trackID - 1]->stsc[count].sampleCount = samples_per_chunk;
+					count++;
+					last_samples_in_chunk = samples_per_chunk;
+				}
+			}
+			
 			tkhd[trackID - 1]->count1 = count;
 		}
 		else if (memcmp(boxHeader + 4, BoxSTCO, 4) == 0)//Chunk offsets Table
 		{
 			std::cout << "find stco" << std::endl;
-			fseek(m_fileHandle, 4, SEEK_CUR);//跳过4字节的fullbox
+			fseek(m_fileHandle, 4, SEEK_CUR);//skip 4 bytes fullbox
 		
 			uint32_t entryCount;
 			uint32_t offset;
@@ -404,6 +463,7 @@ int MP4Demuxer::Parse()
 		}
 		else
 		{
+			auto pp = (char*)boxHeader + 4;
 			std::cout << "ignore:" << std::string((char*)boxHeader + 4, 4) << std::endl;
 			fseek(m_fileHandle, boxDataSize, SEEK_CUR);
 		}
@@ -456,6 +516,7 @@ int MP4Demuxer::GetNextFrame(uint8_t** data, uint32_t* sz, uint32_t* ts, bool* i
 int MP4Demuxer::GetNextAudioFrame(uint8_t** data, uint32_t* sz, uint32_t* ts)
 {
 	auto audioTrack = tkhd[0]->isVideo ? tkhd[1] : tkhd[0];
+
 	if (audioTrack->curSampleIndex >= audioTrack->TotalSampleCount)
 		return -1;
 	fseek(m_fileHandle, audioTrack->samples[audioTrack->curSampleIndex].Position, SEEK_SET);
@@ -471,10 +532,23 @@ int MP4Demuxer::GetNextAudioFrame(uint8_t** data, uint32_t* sz, uint32_t* ts)
 		mediaData = new uint8_t[audioTrack->samples[audioTrack->curSampleIndex].SampleSize];
 		mediaSize = audioTrack->samples[audioTrack->curSampleIndex].SampleSize;
 	}
-	
-	fread(mediaData, 1, audioTrack->samples[audioTrack->curSampleIndex].SampleSize, m_fileHandle);
-		
+	int i = 0;
+	uint32_t naluSize;
+	while (i < audioTrack->samples[audioTrack->curSampleIndex].SampleSize)
+	{
+		fread(mediaData, 1, audioTrack->samples[audioTrack->curSampleIndex].SampleSize, m_fileHandle);
+		break;
+		//fread(&naluSize, 1, 4, m_fileHandle);
+		//naluSize = ntohl(naluSize);
+		//memcpy(mediaData + i, startCode, 4);
+		//i += 4;
+		//fread(mediaData + i, 1, naluSize, m_fileHandle);
+		//i += naluSize;
+	}
+	//if (i != audioTrack->samples[audioTrack->curSampleIndex].SampleSize)
+	//	std::cout << "abc" << std::endl;
 	*ts = audioTrack->samples[audioTrack->curSampleIndex].TimeStamp;
+	//*isKeyFrame = audioTrack->samples[audioTrack->curSampleIndex].isKeyFrame;
 	*data = mediaData;
 	*sz = audioTrack->samples[audioTrack->curSampleIndex].SampleSize;
 	audioTrack->curSampleIndex++;
@@ -496,5 +570,81 @@ int MP4Demuxer::Seek(uint32_t ts)
 			break;
 		}
 	}
+	return 0;
+}
+
+void MP4Demuxer::WriteTag(FILE* fPtr)
+{
+	if (vps)
+	{
+		fwrite(startCode, 1, 4, fPtr);
+		fwrite(vps, 1, vpsLen, fPtr);
+	}
+	/*sps*/
+	fwrite(startCode, 1, 4, fPtr);
+	fwrite(sps, 1, spsLen, fPtr);
+	/*pps*/
+	fwrite(startCode, 1, 4, fPtr);
+	fwrite(pps, 1, ppsLen, fPtr);
+}
+
+int MP4Demuxer::GetOneFrame(uint8_t** data, uint32_t* sz, uint32_t* ts, bool* isKeyFrame, bool* isVideo)
+{
+	AtomTKHD* track = nullptr;
+	tkhd[0]->curSampleIndex;
+	if (tkhd[0]->curSampleIndex < tkhd[0]->TotalSampleCount &&
+		tkhd[1]->curSampleIndex < tkhd[1]->TotalSampleCount)
+	{
+		track = (tkhd[0]->samples[tkhd[0]->curSampleIndex].Position < tkhd[1]->samples[tkhd[1]->curSampleIndex].Position) ? tkhd[0] : tkhd[1];
+	}
+	else if (tkhd[0]->curSampleIndex < tkhd[0]->TotalSampleCount)
+		track = tkhd[0];
+	else if (tkhd[1]->curSampleIndex < tkhd[1]->TotalSampleCount)
+		track = tkhd[1];
+	else
+		return 1;
+
+
+	fseek(m_fileHandle, track->samples[track->curSampleIndex].Position, SEEK_SET);
+	if (!mediaData)
+	{
+		mediaData = new uint8_t[track->samples[track->curSampleIndex].SampleSize];
+		mediaSize = track->samples[track->curSampleIndex].SampleSize;
+	}
+	else if (mediaSize < track->samples[track->curSampleIndex].SampleSize)
+	{
+		std::cout << "buf too small" << std::endl;
+		delete[] mediaData;
+		mediaData = new uint8_t[track->samples[track->curSampleIndex].SampleSize];
+		mediaSize = track->samples[track->curSampleIndex].SampleSize;
+	}
+	int i = 0;
+	uint32_t naluSize;
+	while (i < track->samples[track->curSampleIndex].SampleSize)
+	{
+		if (!track->isVideo)
+		{
+			fread(mediaData, 1, track->samples[track->curSampleIndex].SampleSize, m_fileHandle);
+			break;
+		}
+		else
+		{
+			fread(&naluSize, 1, 4, m_fileHandle);
+			naluSize = ntohl(naluSize);
+			memcpy(mediaData + i, startCode, 4);
+			i += 4;
+			fread(mediaData + i, 1, naluSize, m_fileHandle);
+			i += naluSize;
+		}
+	}
+	//if (i != audioTrack->samples[audioTrack->curSampleIndex].SampleSize)
+	//	std::cout << "abc" << std::endl;
+	*ts = track->samples[track->curSampleIndex].TimeStamp;
+	*isKeyFrame = track->samples[track->curSampleIndex].isKeyFrame;
+	*data = mediaData;
+	*sz = track->samples[track->curSampleIndex].SampleSize;
+	*isVideo = track->isVideo;
+	track->curSampleIndex++;
+
 	return 0;
 }
